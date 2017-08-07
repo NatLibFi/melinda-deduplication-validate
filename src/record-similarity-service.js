@@ -1,15 +1,18 @@
 // @flow
 
+import type { MarcRecord } from 'melinda-deduplication-common/types/marc-record.flow';
+
+
 const fs = require('fs');
 const path = require('path');
 const RecordSimilarity = require('marc-record-similarity');
-const defaultStrategy = require('marc-record-similarity/strategies/all');
+const strategy = require('./similarity-strategy');
 
 const net = fs.readFileSync(path.resolve(__dirname, '../node_modules/marc-record-similarity/neural/networks/2014-11-27.json'), 'utf8');
 
 const options = {
   network: JSON.parse(net),
-  strategy: defaultStrategy
+  strategy: strategy
 };
 
 const similarity = new RecordSimilarity(options);
@@ -20,7 +23,7 @@ const DuplicateClass = {
   MAYBE_DUPLICATE: 'MAYBE_DUPLICATE'
 };
 
-function checkSimilarity(firstRecord, secondRecord) {
+function checkSimilarity(firstRecord: MarcRecord, secondRecord: MarcRecord) {
 
   const result = similarity.check(firstRecord, secondRecord);
 
