@@ -31,7 +31,7 @@ async function start() {
 
   const duplicateQueueConnection = await amqp.connect(DUPLICATE_QUEUE_AMQP_HOST);
   const duplicateChannel = await duplicateQueueConnection.createChannel();
-  const duplicateQueueConnector = DuplidateQueueConnector.createDuplicateQueueConnector(channel);
+  const duplicateQueueConnector = DuplidateQueueConnector.createDuplicateQueueConnector(duplicateChannel);
 
   candidateQueueService.listenForCandidates(async (candidate, done) => {
 
