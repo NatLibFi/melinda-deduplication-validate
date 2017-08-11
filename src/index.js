@@ -7,15 +7,15 @@ const _ = require('lodash');
 const amqp = require('amqplib');
 
 const utils = require('melinda-deduplication-common/utils/utils');
-const CandidateQueueService = require('melinda-deduplication-common/utils/candidate-queue-service');
+const CandidateQueueConnector = require('melinda-deduplication-common/utils/candidate-queue-connector');
 const DuplidateQueueConnector = require('melinda-deduplication-common/utils/duplicate-queue-connector');
-const DataStoreService = require('melinda-deduplication-common/utils/data-store-service');
+const DataStoreConnector = require('melinda-deduplication-common/utils/datastore-connector');
 
 const CANDIDATE_QUEUE_AMQP_HOST = utils.readEnvironmentVariable('CANDIDATE_QUEUE_AMQP_HOST');
 const DUPLICATE_QUEUE_AMQP_HOST = utils.readEnvironmentVariable('DUPLICATE_QUEUE_AMQP_HOST');
 const DATASTORE_API = utils.readEnvironmentVariable('DATASTORE_API', 'http://localhost:8080');
 
-const dataStoreService = DataStoreService.createDataStoreService(DATASTORE_API);
+const dataStoreService = DataStoreConnector.createDataStoreConnector(DATASTORE_API);
 const RecordSimilarityService = require('./record-similarity-service');
 
 start().catch(error => {
@@ -27,13 +27,13 @@ async function start() {
   const candidateQueueConnection = await amqp.connect(CANDIDATE_QUEUE_AMQP_HOST);
   const channel = await candidateQueueConnection.createChannel();
   logger.log('info', 'Connected to rabbitMQ');
-  const candidateQueueService = CandidateQueueService.createCandidateQueueService(channel);
+  const candidateQueueConnector = CandidateQueueConnector.createCandidateQueueConnector(channel);
 
   const duplicateQueueConnection = await amqp.connect(DUPLICATE_QUEUE_AMQP_HOST);
   const duplicateChannel = await duplicateQueueConnection.createChannel();
   const duplicateQueueConnector = DuplidateQueueConnector.createDuplicateQueueConnector(duplicateChannel);
 
-  candidateQueueService.listenForCandidates(async (candidate, done) => {
+  candidateQueueConnector.listenForCandidates(async (candidate, done) => {
 
     logger.log('info', 'Loading records from data store');
     const startTime = process.hrtime();
