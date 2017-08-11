@@ -11,8 +11,8 @@ const CandidateQueueConnector = require('melinda-deduplication-common/utils/cand
 const DuplidateQueueConnector = require('melinda-deduplication-common/utils/duplicate-queue-connector');
 const DataStoreConnector = require('melinda-deduplication-common/utils/datastore-connector');
 
-const CANDIDATE_QUEUE_AMQP_HOST = utils.readEnvironmentVariable('CANDIDATE_QUEUE_AMQP_HOST');
-const DUPLICATE_QUEUE_AMQP_HOST = utils.readEnvironmentVariable('DUPLICATE_QUEUE_AMQP_HOST');
+const CANDIDATE_QUEUE_AMQP_URL = utils.readEnvironmentVariable('CANDIDATE_QUEUE_AMQP_URL');
+const DUPLICATE_QUEUE_AMQP_URL = utils.readEnvironmentVariable('DUPLICATE_QUEUE_AMQP_URL');
 const DATASTORE_API = utils.readEnvironmentVariable('DATASTORE_API', 'http://localhost:8080');
 
 const dataStoreService = DataStoreConnector.createDataStoreConnector(DATASTORE_API);
@@ -24,12 +24,12 @@ start().catch(error => {
 
 async function start() {
   logger.log('info', 'Connecting to rabbitMQ');
-  const candidateQueueConnection = await amqp.connect(CANDIDATE_QUEUE_AMQP_HOST);
+  const candidateQueueConnection = await amqp.connect(CANDIDATE_QUEUE_AMQP_URL);
   const channel = await candidateQueueConnection.createChannel();
   logger.log('info', 'Connected to rabbitMQ');
   const candidateQueueConnector = CandidateQueueConnector.createCandidateQueueConnector(channel);
 
-  const duplicateQueueConnection = await amqp.connect(DUPLICATE_QUEUE_AMQP_HOST);
+  const duplicateQueueConnection = await amqp.connect(DUPLICATE_QUEUE_AMQP_URL);
   const duplicateChannel = await duplicateQueueConnection.createChannel();
   const duplicateQueueConnector = DuplidateQueueConnector.createDuplicateQueueConnector(duplicateChannel);
 
