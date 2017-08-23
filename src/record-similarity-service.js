@@ -8,7 +8,19 @@ const path = require('path');
 const RecordSimilarity = require('marc-record-similarity');
 const strategy = require('./similarity-strategy');
 
-const net = fs.readFileSync(path.resolve(__dirname, '../node_modules/marc-record-similarity/neural/networks/2014-11-27.json'), 'utf8');
+let net;
+const path1 = path.resolve(__dirname, '../node_modules/marc-record-similarity/neural/networks/2014-11-27.json');
+const path2 = path.resolve(__dirname, './node_modules/marc-record-similarity/neural/networks/2014-11-27.json');
+if (fs.existsSync(path1)) {
+  net = fs.readFileSync(path1, 'utf8');
+}
+if (fs.existsSync(path2)) {
+  net = fs.readFileSync(path2, 'utf8');
+}
+if (net === undefined) {
+  throw new Error('Could not load network');
+}
+
 
 const options = {
   network: JSON.parse(net),
