@@ -35,6 +35,6 @@
     "amqplib": "^0.5.1",
     "debug": "^2.6.8",
     "lodash": "^4.17.4",
-    "marc-record-similarity": "^1.0.1"
+    "marc-record-similarity": "git+https://github.com/NatLibFi/marc-record-similarity.git#a8ec68c5455c29c1ecf65784b9f8fcd97ff1751e"
   }
 }

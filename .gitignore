@@ -8,3 +8,4 @@ tnsnames.ora
 .libtest*
 setup_env.sh
 start_ssh*
+aci-build
