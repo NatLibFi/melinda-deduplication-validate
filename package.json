@@ -23,18 +23,22 @@
     "babel-eslint": "^7.2.3",
     "babel-plugin-module-resolver": "^2.7.1",
     "babel-preset-flow": "^6.23.0",
+    "chai": "^4.1.1",
     "concurrently": "^3.5.0",
     "eslint": "^4.1.1",
     "eslint-import-resolver-babel-module": "^3.0.0",
     "eslint-plugin-flowtype": "^2.34.0",
     "eslint-plugin-import": "^2.6.0",
-    "flow-bin": "^0.48.0",
-    "nodemon": "^1.11.0"
+    "flow-bin": "^0.53.0",
+    "mocha": "^3.5.0",
+    "nodemon": "^1.11.0",
+    "sinon": "^3.2.1"
   },
   "dependencies": {
     "amqplib": "^0.5.1",
     "debug": "^2.6.8",
     "lodash": "^4.17.4",
-    "marc-record-similarity": "git+https://github.com/NatLibFi/marc-record-similarity.git#a8ec68c5455c29c1ecf65784b9f8fcd97ff1751e"
+    "marc-record-similarity": "git+https://github.com/NatLibFi/marc-record-similarity.git#a8ec68c5455c29c1ecf65784b9f8fcd97ff1751e",
+    "synaptic": "^1.0.12"
   }
 }

@@ -1,33 +1,13 @@
 // @flow
-
 import type { MarcRecord } from 'melinda-deduplication-common/types/marc-record.flow';
-
 
 const fs = require('fs');
 const path = require('path');
-const RecordSimilarity = require('marc-record-similarity');
-const strategy = require('./similarity-strategy');
+const synaptic = require('synaptic');
 
-let net;
-const path1 = path.resolve(__dirname, '../node_modules/marc-record-similarity/neural/networks/2014-11-27.json');
-const path2 = path.resolve(__dirname, './node_modules/marc-record-similarity/neural/networks/2014-11-27.json');
-if (fs.existsSync(path1)) {
-  net = fs.readFileSync(path1, 'utf8');
-}
-if (fs.existsSync(path2)) {
-  net = fs.readFileSync(path2, 'utf8');
-}
-if (net === undefined) {
-  throw new Error('Could not load network');
-}
-
-
-const options = {
-  network: JSON.parse(net),
-  strategy: strategy
-};
-
-const similarity = new RecordSimilarity(options);
+const networkFile = path.resolve(__dirname, './percepton.json');
+const exported = JSON.parse(fs.readFileSync(networkFile, 'utf8'));
+const importedNetwork = synaptic.Network.fromJSON(exported);
 
 const DuplicateClass = {
   IS_DUPLICATE: 'IS_DUPLICATE',
@@ -37,11 +17,13 @@ const DuplicateClass = {
 
 function checkSimilarity(firstRecord: MarcRecord, secondRecord: MarcRecord) {
 
-  const result = similarity.check(firstRecord, secondRecord);
+  const inputVector = Utils.pairToInputVector([firstRecord, secondRecord]);
+  const numericProbability = importedNetwork.activate(inputVector)[0];
 
   return {
-    type: classifyResult(result),
-    numeric: result
+    type: classifyResult(numericProbability),
+    numeric: numericProbability,
+    inputVector
   };
 }
 
@@ -49,7 +31,7 @@ function classifyResult(validationResult) {
   if (validationResult < 0.5) {
     return DuplicateClass.NOT_DUPLICATE;
   }
-  if (validationResult > 0.95) {
+  if (validationResult > 0.75) {
     return DuplicateClass.IS_DUPLICATE;
   }
   return DuplicateClass.MAYBE_DUPLICATE;
