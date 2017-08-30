@@ -5,19 +5,20 @@ const fs = require('fs');
 const path = require('path');
 const synaptic = require('synaptic');
 
+const IS_DUPLICATE_THRESHOLD = 0.75;
+
+const SimilarityUtils = require('melinda-deduplication-common/similarity/utils');
+const DuplicateClass = SimilarityUtils.DuplicateClass;
+
 const networkFile = path.resolve(__dirname, './percepton.json');
 const exported = JSON.parse(fs.readFileSync(networkFile, 'utf8'));
 const importedNetwork = synaptic.Network.fromJSON(exported);
 
-const DuplicateClass = {
-  IS_DUPLICATE: 'IS_DUPLICATE',
-  NOT_DUPLICATE: 'NOT_DUPLICATE',
-  MAYBE_DUPLICATE: 'MAYBE_DUPLICATE'
-};
 
 function checkSimilarity(firstRecord: MarcRecord, secondRecord: MarcRecord) {
 
-  const inputVector = Utils.pairToInputVector([firstRecord, secondRecord]);
+  const recordPair = {record1: firstRecord, record2: secondRecord};
+  const inputVector = SimilarityUtils.pairToInputVector(recordPair);
   const numericProbability = importedNetwork.activate(inputVector)[0];
 
   return {
@@ -28,10 +29,10 @@ function checkSimilarity(firstRecord: MarcRecord, secondRecord: MarcRecord) {
 }
 
 function classifyResult(validationResult) {
-  if (validationResult < 0.5) {
+  if (validationResult < 0.65) {
     return DuplicateClass.NOT_DUPLICATE;
   }
-  if (validationResult > 0.75) {
+  if (validationResult > IS_DUPLICATE_THRESHOLD) {
     return DuplicateClass.IS_DUPLICATE;
   }
   return DuplicateClass.MAYBE_DUPLICATE;
