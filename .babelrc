@@ -1,5 +1,5 @@
 {
-  "presets": ["flow"],
+  "presets": ["flow", "es2015"],
   "plugins": [
     ["module-resolver", {
       "alias": {

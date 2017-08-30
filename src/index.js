@@ -7,6 +7,8 @@ const _ = require('lodash');
 const amqp = require('amqplib');
 
 const utils = require('melinda-deduplication-common/utils/utils');
+const SimilarityUtils = require('melinda-deduplication-common/similarity/utils');
+
 const CandidateQueueConnector = require('melinda-deduplication-common/utils/candidate-queue-connector');
 const DuplidateQueueConnector = require('melinda-deduplication-common/utils/duplicate-queue-connector');
 const DataStoreConnector = require('melinda-deduplication-common/utils/datastore-connector');
@@ -50,14 +52,18 @@ async function start() {
       validationResult = RecordSimilarityService.checkSimilarity(firstRecord, secondRecord);
     } catch(e) {
       logger.log('error', 'Failure in marc-record-similarity module, skipping this candidate');
+      logger.log('error', e);
       logger.log('error', candidate);
+      logger.log('error', firstRecord.toString());
+      logger.log('error', secondRecord.toString());
+      
       return done();
     }
     const validateDuration = utils.hrtimeToMs(process.hrtime(validateStart));
 
-    console.log(validationResult);
+    const {IS_DUPLICATE, NOT_DUPLICATE, MAYBE_DUPLICATE} = SimilarityUtils.DuplicateClass;
 
-    const {IS_DUPLICATE, NOT_DUPLICATE, MAYBE_DUPLICATE} = RecordSimilarityService.DuplicateClass;
+    console.log(validationResult);
 
     if (validationResult.type === MAYBE_DUPLICATE || validationResult.type === IS_DUPLICATE) {
       console.log(firstRecord.toString());
@@ -84,5 +90,4 @@ async function start() {
       await sendToDuplicateQueue(candidate, validationResult);
     }
   });
-
 }
