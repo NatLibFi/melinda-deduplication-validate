@@ -20,6 +20,10 @@ const DATASTORE_API = utils.readEnvironmentVariable('DATASTORE_API', 'http://loc
 const dataStoreService = DataStoreConnector.createDataStoreConnector(DATASTORE_API);
 const RecordSimilarityService = require('./record-similarity-service');
 
+const modelPath = path.resolve(__dirname, 'config', 'select-better-percepton.json');
+const selectPreferredRecordModel = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
+const PreferredRecordService = require('melinda-deduplication-common/utils/preferred-record-service');
+
 start().catch(error => {
   logger.log('error', error.message, error);
 });
@@ -35,6 +39,8 @@ async function start() {
   const duplicateChannel = await duplicateQueueConnection.createChannel();
   const duplicateQueueConnector = DuplidateQueueConnector.createDuplicateQueueConnector(duplicateChannel);
 
+  const preferredRecordService = PreferredRecordService.createPreferredRecordService(selectPreferredRecordModel);
+  
   candidateQueueConnector.listenForCandidates(async (candidate, done) => {
 
     logger.log('info', 'Loading records from data store');
@@ -44,11 +50,14 @@ async function start() {
     const secondRecord = await dataStoreService.loadRecord(candidate.second.base, candidate.second.id);
     const ioDuration = utils.hrtimeToMs(process.hrtime(ioStart));
 
+    const { preferredRecord, otherRecord } = preferredRecordService.selectPreferredRecord(firstRecord, secondRecord);
+
     logger.log('info', 'Checking record similarity');
     const validateStart = process.hrtime();
 
     let validationResult;
     try {
+      // TODO: check that merge is possible
       validationResult = RecordSimilarityService.checkSimilarity(firstRecord, secondRecord);
     } catch(e) {
       logger.log('error', 'Failure in marc-record-similarity module, skipping this candidate');
