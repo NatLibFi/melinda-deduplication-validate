@@ -3,8 +3,12 @@
 const logger = require('melinda-deduplication-common/utils/logger');
 logger.log('info', 'Starting melinda-deduplication-validate');
 
+const path = require('path');
+const fs = require('fs');
 const _ = require('lodash');
 const amqp = require('amqplib');
+const cluster = require('cluster');
+const numCPUs = require('os').cpus().length;
 
 const utils = require('melinda-deduplication-common/utils/utils');
 const SimilarityUtils = require('melinda-deduplication-common/similarity/utils');
@@ -16,15 +20,47 @@ const DataStoreConnector = require('melinda-deduplication-common/utils/datastore
 const CANDIDATE_QUEUE_AMQP_URL = utils.readEnvironmentVariable('CANDIDATE_QUEUE_AMQP_URL');
 const DUPLICATE_QUEUE_AMQP_URL = utils.readEnvironmentVariable('DUPLICATE_QUEUE_AMQP_URL');
 const DATASTORE_API = utils.readEnvironmentVariable('DATASTORE_API', 'http://localhost:8080');
-
+const NUMBER_OF_WORKERS = utils.readEnvironmentVariable('NUMBER_OF_WORKERS', numCPUs);
 const dataStoreService = DataStoreConnector.createDataStoreConnector(DATASTORE_API);
 const RecordSimilarityService = require('./record-similarity-service');
 
-start().catch(error => {
-  logger.log('error', error.message, error);
-});
+const modelPath = path.resolve(__dirname, 'config', 'select-better-model.json');
+const selectPreferredRecordModel = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
+const PreferredRecordService = require('melinda-deduplication-common/utils/preferred-record-service');
 
-async function start() {
+if (cluster.isMaster) {
+  logger.log('info', `Master ${process.pid} is running.`);
+  logger.log('info', `Starting ${NUMBER_OF_WORKERS} workers.`);
+
+  for (let i = 0; i < NUMBER_OF_WORKERS; i++) {
+    cluster.fork();
+  }
+
+  cluster.on('exit', (worker) => {
+    logger.log('info', `worker ${worker.process.pid} died`);
+  });
+
+} else {
+
+  
+  start(process, logger).catch(error => {
+    logger.log('error', error.message, error);
+  });
+  
+}
+
+function wrapLoggerWithPid(pid, logger) {
+  logger.filters.push((level, msg) => {
+    return `${pid}] ${msg}`;
+  });
+  return logger;
+}
+
+async function start(process, workerLogger) {
+  const pid = process.pid;
+  const logger = wrapLoggerWithPid(pid, workerLogger.createLogger());
+  logger.log('info', `Worker ${process.pid} started`);
+  
   logger.log('info', 'Connecting to rabbitMQ');
   const candidateQueueConnection = await amqp.connect(CANDIDATE_QUEUE_AMQP_URL);
   const channel = await candidateQueueConnection.createChannel();
@@ -35,6 +71,8 @@ async function start() {
   const duplicateChannel = await duplicateQueueConnection.createChannel();
   const duplicateQueueConnector = DuplidateQueueConnector.createDuplicateQueueConnector(duplicateChannel);
 
+  const preferredRecordService = PreferredRecordService.createPreferredRecordService(selectPreferredRecordModel);
+  
   candidateQueueConnector.listenForCandidates(async (candidate, done) => {
 
     logger.log('info', 'Loading records from data store');
@@ -44,18 +82,21 @@ async function start() {
     const secondRecord = await dataStoreService.loadRecord(candidate.second.base, candidate.second.id);
     const ioDuration = utils.hrtimeToMs(process.hrtime(ioStart));
 
+    const { preferredRecord, otherRecord } = preferredRecordService.selectPreferredRecord(firstRecord, secondRecord);
+
     logger.log('info', 'Checking record similarity');
     const validateStart = process.hrtime();
 
     let validationResult;
     try {
-      validationResult = RecordSimilarityService.checkSimilarity(firstRecord, secondRecord);
+      // TODO: check that merge is possible
+      validationResult = RecordSimilarityService.checkSimilarity(preferredRecord, otherRecord);
     } catch(e) {
       logger.log('error', 'Failure in marc-record-similarity module, skipping this candidate');
       logger.log('error', e);
       logger.log('error', candidate);
-      logger.log('error', firstRecord.toString());
-      logger.log('error', secondRecord.toString());
+      logger.log('error', preferredRecord.toString());
+      logger.log('error', otherRecord.toString());
       
       return done();
     }
