@@ -10,9 +10,9 @@ const IS_DUPLICATE_THRESHOLD = 0.75;
 const SimilarityUtils = require('melinda-deduplication-common/similarity/utils');
 const DuplicateClass = SimilarityUtils.DuplicateClass;
 
-const networkFile = path.resolve(__dirname, './percepton.json');
-const exported = JSON.parse(fs.readFileSync(networkFile, 'utf8'));
-const importedNetwork = synaptic.Network.fromJSON(exported);
+const networkFile = path.resolve(__dirname, 'config', 'duplicate-detection-model.json');
+const jsonNetwork = JSON.parse(fs.readFileSync(networkFile, 'utf8'));
+const importedNetwork = synaptic.Network.fromJSON(jsonNetwork);
 
 
 function checkSimilarity(firstRecord: MarcRecord, secondRecord: MarcRecord) {
