@@ -28,6 +28,11 @@ const modelPath = path.resolve(__dirname, 'config', 'select-better-model.json');
 const selectPreferredRecordModel = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
 const PreferredRecordService = require('melinda-deduplication-common/utils/preferred-record-service');
 
+process.on('unhandledRejection', error => {
+  logger.log('error', 'unhandledRejection', error.message, error.stack);
+  process.exit(1);
+});
+
 if (cluster.isMaster) {
   logger.log('info', `Master ${process.pid} is running.`);
   logger.log('info', `Starting ${NUMBER_OF_WORKERS} workers.`);
@@ -102,14 +107,14 @@ async function start(process, workerLogger) {
     }
     const validateDuration = utils.hrtimeToMs(process.hrtime(validateStart));
 
-    const {IS_DUPLICATE, NOT_DUPLICATE, MAYBE_DUPLICATE} = SimilarityUtils.DuplicateClass;
-
-    console.log(validationResult);
+    const {IS_DUPLICATE, MAYBE_DUPLICATE} = SimilarityUtils.DuplicateClass;
 
     if (validationResult.type === MAYBE_DUPLICATE || validationResult.type === IS_DUPLICATE) {
       console.log(firstRecord.toString());
       console.log(secondRecord.toString());
     }
+
+    logger.log('info', `Candidate is ${validationResult.type}`);
 
     switch(validationResult.type) {
       case IS_DUPLICATE: await sendToDuplicateQueue(candidate, validationResult); break;
