@@ -12,6 +12,7 @@ const numCPUs = require('os').cpus().length;
 
 const utils = require('melinda-deduplication-common/utils/utils');
 const SimilarityUtils = require('melinda-deduplication-common/similarity/utils');
+const RecordUtils = require('melinda-deduplication-common/utils/record-utils');
 
 const CandidateQueueConnector = require('melinda-deduplication-common/utils/candidate-queue-connector');
 const DuplidateQueueConnector = require('melinda-deduplication-common/utils/duplicate-queue-connector');
@@ -80,7 +81,9 @@ async function start(process, workerLogger) {
   
   candidateQueueConnector.listenForCandidates(async (candidate, done) => {
 
-    logger.log('info', 'Loading records from data store');
+    const pairIdentifier = `(${candidate.first.base})${candidate.first.id} - (${candidate.second.base})${candidate.second.id}`;
+    
+    logger.log('info', `${pairIdentifier} Loading records from data store`);
     const startTime = process.hrtime();
     const ioStart = process.hrtime();
     const firstRecord = await dataStoreService.loadRecord(candidate.first.base, candidate.first.id);
@@ -89,15 +92,14 @@ async function start(process, workerLogger) {
 
     const { preferredRecord, otherRecord } = preferredRecordService.selectPreferredRecord(firstRecord, secondRecord);
 
-    logger.log('info', 'Checking record similarity');
+    logger.log('info', `${pairIdentifier} Checking similarity`);
     const validateStart = process.hrtime();
 
     let validationResult;
     try {
-      // TODO: check that merge is possible
       validationResult = RecordSimilarityService.checkSimilarity(preferredRecord, otherRecord);
     } catch(e) {
-      logger.log('error', 'Failure in marc-record-similarity module, skipping this candidate');
+      logger.log('error', `${pairIdentifier} Failure in marc-record-similarity module, skipping this candidate`);
       logger.log('error', e);
       logger.log('error', candidate);
       logger.log('error', preferredRecord.toString());
@@ -114,7 +116,7 @@ async function start(process, workerLogger) {
       console.log(secondRecord.toString());
     }
 
-    logger.log('info', `Candidate is ${validationResult.type}`);
+    logger.log('info', `${pairIdentifier} is ${validationResult.type}`);
 
     switch(validationResult.type) {
       case IS_DUPLICATE: await sendToDuplicateQueue(candidate, validationResult); break;
@@ -122,7 +124,7 @@ async function start(process, workerLogger) {
     }
 
     const duration = utils.hrtimeToMs(process.hrtime(startTime));
-    logger.log('info', `Candidate was handled in ${duration}ms - IO took ${ioDuration}ms - Validation took ${validateDuration}ms`);
+    logger.log('info', `${pairIdentifier} was handled in ${duration}ms - IO took ${ioDuration}ms - Validation took ${validateDuration}ms`);
 
     done();
 
