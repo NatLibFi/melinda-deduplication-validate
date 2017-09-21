@@ -9,6 +9,7 @@ const _ = require('lodash');
 const amqp = require('amqplib');
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
+const debug = require('debug')('validate');
 
 const utils = require('melinda-deduplication-common/utils/utils');
 const SimilarityUtils = require('melinda-deduplication-common/similarity/utils');
@@ -112,17 +113,23 @@ async function start(process, workerLogger) {
     const {IS_DUPLICATE, MAYBE_DUPLICATE} = SimilarityUtils.DuplicateClass;
 
     if (validationResult.type === MAYBE_DUPLICATE || validationResult.type === IS_DUPLICATE) {
-      console.log(firstRecord.toString());
-      console.log(secondRecord.toString());
+      debug('First:');
+      debug(firstRecord.toString());
+      debug('Second:');
+      debug(secondRecord.toString());
     }
 
-    logger.log('info', `${pairIdentifier} is ${validationResult.type}`);
+    logger.log('info', `${pairIdentifier} is ${validationResult.type}. Negative features: ${validationResult.hasNegativeFeatures}`);
 
-    switch(validationResult.type) {
-      case IS_DUPLICATE: await sendToDuplicateQueue(candidate, validationResult); break;
-      case MAYBE_DUPLICATE: await sendToDuplicateDatabase(candidate); break;
+    if (validationResult.hasNegativeFeatures) {
+      logger.log('info', `${pairIdentifier} has negative features. Skipping pair`);
+    } else {
+      switch(validationResult.type) {
+        case IS_DUPLICATE: await sendToDuplicateQueue(candidate, validationResult); break;
+        case MAYBE_DUPLICATE: await sendToDuplicateDatabase(candidate); break;
+      }
     }
-
+  
     const duration = utils.hrtimeToMs(process.hrtime(startTime));
     logger.log('info', `${pairIdentifier} was handled in ${duration}ms - IO took ${ioDuration}ms - Validation took ${validateDuration}ms`);
 

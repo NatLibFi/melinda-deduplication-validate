@@ -14,17 +14,19 @@ const networkFile = path.resolve(__dirname, 'config', 'duplicate-detection-model
 const jsonNetwork = JSON.parse(fs.readFileSync(networkFile, 'utf8'));
 const importedNetwork = synaptic.Network.fromJSON(jsonNetwork);
 
-
 function checkSimilarity(firstRecord: MarcRecord, secondRecord: MarcRecord) {
 
   const recordPair = {record1: firstRecord, record2: secondRecord};
   const inputVector = SimilarityUtils.pairToInputVector(recordPair);
   const numericProbability = importedNetwork.activate(inputVector)[0];
 
+  const hasNegativeFeatures = inputVector.some(val => val < 0);
+  
   return {
     type: classifyResult(numericProbability),
     numeric: numericProbability,
-    inputVector
+    inputVector,
+    hasNegativeFeatures
   };
 }
 
