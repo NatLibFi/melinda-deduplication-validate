@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const synaptic = require('synaptic');
 
-const IS_DUPLICATE_THRESHOLD = 0.75;
+const IS_DUPLICATE_THRESHOLD = 0.9;
 
 const SimilarityUtils = require('melinda-deduplication-common/similarity/utils');
 const DuplicateClass = SimilarityUtils.DuplicateClass;
