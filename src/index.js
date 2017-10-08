@@ -18,6 +18,7 @@ const RecordUtils = require('melinda-deduplication-common/utils/record-utils');
 const CandidateQueueConnector = require('melinda-deduplication-common/utils/candidate-queue-connector');
 const DuplidateQueueConnector = require('melinda-deduplication-common/utils/duplicate-queue-connector');
 const DataStoreConnector = require('melinda-deduplication-common/utils/datastore-connector');
+const DuplicateDatabaseConnector = require('melinda-deduplication-common/utils/duplicate-database-connector');
 
 const CANDIDATE_QUEUE_AMQP_URL = utils.readEnvironmentVariable('CANDIDATE_QUEUE_AMQP_URL');
 const DUPLICATE_QUEUE_AMQP_URL = utils.readEnvironmentVariable('DUPLICATE_QUEUE_AMQP_URL');
@@ -25,6 +26,16 @@ const DATASTORE_API = utils.readEnvironmentVariable('DATASTORE_API', 'http://loc
 const NUMBER_OF_WORKERS = utils.readEnvironmentVariable('NUMBER_OF_WORKERS', numCPUs);
 const dataStoreService = DataStoreConnector.createDataStoreConnector(DATASTORE_API);
 const RecordSimilarityService = require('./record-similarity-service');
+
+const DUPLICATE_DB_API = utils.readEnvironmentVariable('DUPLICATE_DB_API');
+const DUPLICATE_DB_MESSAGE = utils.readEnvironmentVariable('DUPLICATE_DB_MESSAGE', 'Automatic Melinda deduplication');
+const DUPLICATE_DB_PRIORITY = utils.readEnvironmentVariable('DUPLICATE_DB_PRIORITY', 1);
+
+const duplicateDBConfiguration = {
+  endpoint: DUPLICATE_DB_API,
+  messageForDuplicateDatabase: DUPLICATE_DB_MESSAGE,
+  priorityForDuplicateDatabase: DUPLICATE_DB_PRIORITY
+};
 
 const modelPath = path.resolve(__dirname, 'config', 'select-better-model.json');
 const selectPreferredRecordModel = JSON.parse(fs.readFileSync(modelPath, 'utf8'));
@@ -49,7 +60,6 @@ if (cluster.isMaster) {
 
 } else {
 
-  
   start(process, logger).catch(error => {
     logger.log('error', error.message, error);
   });
@@ -80,6 +90,8 @@ async function start(process, workerLogger) {
 
   const preferredRecordService = PreferredRecordService.createPreferredRecordService(selectPreferredRecordModel);
   
+  const duplicateDatabaseConnector = DuplicateDatabaseConnector.createDuplicateDatabaseConnector(duplicateDBConfiguration);
+
   candidateQueueConnector.listenForCandidates(async (candidate, done) => {
 
     const pairIdentifier = `(${candidate.first.base})${candidate.first.id} - (${candidate.second.base})${candidate.second.id}`;
@@ -126,7 +138,7 @@ async function start(process, workerLogger) {
     } else {
       switch(validationResult.type) {
         case IS_DUPLICATE: await sendToDuplicateQueue(candidate, validationResult); break;
-        case MAYBE_DUPLICATE: await sendToDuplicateDatabase(candidate); break;
+        case MAYBE_DUPLICATE: await sendToDuplicateDatabase(candidate, validationResult); break;
       }
     }
   
@@ -140,9 +152,17 @@ async function start(process, workerLogger) {
       duplicateQueueConnector.pushDuplicate(duplicate);
     }
 
-    async function sendToDuplicateDatabase(candidate) {
-      logger.log('info', 'Sending MAYBE to duplicate queue for testing, this should go to duplicate db');
-      await sendToDuplicateQueue(candidate, validationResult);
+    async function sendToDuplicateDatabase(candidate, validationResult) {
+      const probability = validationResult.numeric;
+      const pairIdentifier = `(${candidate.first.base})${candidate.first.id} - (${candidate.second.base})${candidate.second.id}`;
+      
+      logger.log('warn', `Duplicate pair ${pairIdentifier} probability: ${probability}. Pair will be sent to duplicate database`);
+      try {
+        await duplicateDatabaseConnector.addDuplicatePair(candidate.first, candidate.second);
+      } catch(error) {
+        logger.log('warn', `Could not add ${pairIdentifier} to duplicate database: ${error.message}`);
+      }
+
     }
   });
 }
